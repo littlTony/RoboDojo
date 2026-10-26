@@ -5,6 +5,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 policy_dir=""
+dataset="RoboDojo"
 env_cfg="arx_x5"
 task_name="stack_bowls"
 ckpt_name=""
@@ -20,6 +21,7 @@ usage() {
 Usage: bash scripts/internal/verify_install.sh [options]
 
 Options:
+  --dataset NAME       Benchmark namespace (default: RoboDojo)
   --policy-dir PATH     Optional XPolicyLab policy directory to validate
   --env-cfg NAME        env_cfg stem to validate (default: arx_x5)
   --task NAME           Task name to validate (default: stack_bowls)
@@ -53,6 +55,7 @@ abs_path() {
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --policy-dir) need_value "$@"; policy_dir="$(abs_path "$2")"; shift 2 ;;
+    --dataset) need_value "$@"; dataset="$2"; shift 2 ;;
     --env-cfg) need_value "$@"; env_cfg="$2"; shift 2 ;;
     --task) need_value "$@"; task_name="$2"; shift 2 ;;
     --ckpt) need_value "$@"; ckpt_name="$2"; shift 2 ;;
@@ -106,11 +109,48 @@ check_path dir "${ROOT_DIR}/env" "env package"
 check_path file "${ROOT_DIR}/scripts/robodojo.sh" "robodojo launcher"
 check_path file "${ROOT_DIR}/scripts/internal/task_inventory.py" "task inventory helper"
 check_path file "${ROOT_DIR}/env_cfg/${env_cfg}.yml" "env_cfg"
-check_path file "${ROOT_DIR}/task/RoboDojo/config/${task_name}.yml" "task config"
+check_path file "${ROOT_DIR}/task/${dataset}/config/${task_name}.yml" "task config"
 check_path dir "${ROOT_DIR}/Assets/Robots" "robot assets"
-check_path dir "${ROOT_DIR}/Assets/Object/RoboDojo" "object assets"
-check_path dir "${ROOT_DIR}/Assets/Eval_Layout/RoboDojo" "eval layouts"
+check_path dir "${ROOT_DIR}/Assets/Object/${dataset}" "object assets"
+check_path dir "${ROOT_DIR}/Assets/Eval_Layout/${dataset}" "eval layouts"
 check_path dir "${ROOT_DIR}/Assets/Material" "materials"
+
+if [[ "${dataset}" == SparkArena ]]; then
+  robot_assets="${ROOT_DIR}/Assets/Robots/tianji_marvin_wuji"
+  for side in left right; do
+    check_path file "${robot_assets}/${side}_robot_config.yml" "Tianji ${side} description"
+    check_path file "${robot_assets}/tianji_marvin_wuji_${side}.usd" "Tianji ${side} USD"
+    check_path file "${robot_assets}/urdf/tianji_wujihand2_${side}.urdf" "Tianji ${side} URDF"
+    check_path file "${robot_assets}/curobo_${side}.yml" "Tianji ${side} Curobo config"
+  done
+  check_path dir "${ROOT_DIR}/Assets/Room/Simple_Room_nolight" "Spark room"
+  check_path file "${ROOT_DIR}/Assets/Background/brown_photostudio_02_4k.hdr" "Spark background"
+  for material in material_0116 material_0122; do
+    check_path dir "${ROOT_DIR}/Assets/Material/${material}" "Spark ${material}"
+  done
+  if python3 - "${ROOT_DIR}" "${env_cfg}" "${task_name}" <<'PY'; then
+from pathlib import Path
+import sys
+import yaml
+
+root, profile, task = Path(sys.argv[1]), sys.argv[2], sys.argv[3]
+cfg = yaml.safe_load((root / "env_cfg" / f"{profile}.yml").read_text())
+layouts = root / "Assets/Eval_Layout/SparkArena" / cfg["config_name"] / "0"
+if not any(layouts.glob(f"{task}_*.json")):
+    raise SystemExit(f"No seed-0 layouts for {task}: {layouts}")
+robot = root / "Assets/Robots/tianji_marvin_wuji"
+for side in ("left", "right"):
+    config = yaml.safe_load((robot / f"curobo_{side}.yml").read_text())
+    urdf = Path(config["robot_cfg"]["kinematics"]["urdf_path"])
+    expected = robot / "urdf" / f"tianji_wujihand2_{side}.urdf"
+    if not urdf.is_absolute() or not urdf.is_file() or urdf.resolve() != expected.resolve():
+        raise SystemExit("Stale Tianji Curobo path; run python utils/update_embodiment_config_path.py in the repo root.")
+PY
+    record "PASS" "Spark layout and Curobo paths" "selected task layouts and local robot paths exist"
+  else
+    record "FAIL" "Spark layout and Curobo paths" "missing layouts or stale generated robot paths"
+  fi
+fi
 
 if [[ -n "${policy_dir}" && "${skip_policy}" != "true" ]]; then
   check_path file "${policy_dir}/eval.sh" "policy eval.sh"
@@ -124,7 +164,7 @@ else
   record "WARN" "policy checks" "skipped; pass --policy-dir to validate a policy"
 fi
 
-if python3 "${ROOT_DIR}/scripts/internal/task_inventory.py" --format json --check >/tmp/robodojo_tasks_verify.json; then
+if python3 "${ROOT_DIR}/scripts/internal/task_inventory.py" --dataset "${dataset}" --format json --check >/tmp/robodojo_tasks_verify.json; then
   task_counts="$(python3 - <<'PY'
 import json
 with open('/tmp/robodojo_tasks_verify.json', encoding='utf-8') as f:

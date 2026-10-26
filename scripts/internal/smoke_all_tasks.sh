@@ -151,7 +151,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-dimension_args=(--resolve-dimensions)
+dimension_args=(--dataset "${dataset}" --resolve-dimensions)
 if [[ -n "${dimensions}" ]]; then
   dimension_args+=(--dimension "${dimensions}")
 fi
@@ -203,9 +203,12 @@ else
   policy_name="$(basename "$(cd "${policy_dir}" && pwd)")"
 fi
 
-summary_path="${summary_path:-${ROOT_DIR}/smoke_results/${run_id}.json}"
-markdown_path="${markdown_path:-${ROOT_DIR}/smoke_results/${run_id}.md}"
-log_dir="${ROOT_DIR}/smoke_results/${run_id}/logs"
+result_config="$(python3 -c "import sys,yaml;print(yaml.safe_load(open(sys.argv[1])).get('config_name',sys.argv[2]))" "${ROOT_DIR}/env_cfg/${env_cfg}.yml" "${env_cfg}")"
+summary_root="${ROOT_DIR}/smoke_results"
+[[ "${dataset}" == RoboDojo ]] || summary_root+="/${dataset}"
+summary_path="${summary_path:-${summary_root}/${run_id}.json}"
+markdown_path="${markdown_path:-${summary_root}/${run_id}.md}"
+log_dir="${summary_root}/${run_id}/logs"
 mkdir -p "$(dirname "${summary_path}")" "$(dirname "${markdown_path}")" "${log_dir}"
 
 RESULTS_TSV="$(mktemp)"
@@ -229,7 +232,7 @@ PY
 fi
 
 load_tasks() {
-  python3 - "${ROOT_DIR}" "${only_tasks}" "${tasks_file}" "${limit}" "${dimensions}" <<'PY'
+  python3 - "${ROOT_DIR}" "${only_tasks}" "${tasks_file}" "${limit}" "${dimensions}" "${dataset}" <<'PY'
 from pathlib import Path
 import sys
 
@@ -238,6 +241,7 @@ only = sys.argv[2]
 tasks_file = sys.argv[3]
 limit = sys.argv[4]
 dimensions = sys.argv[5]
+benchmark = sys.argv[6]
 sys.path.insert(0, str(root))
 
 import subprocess
@@ -245,6 +249,7 @@ inventory_cmd = [
     sys.executable,
     str(root / "scripts" / "internal" / "task_inventory.py"),
     "--only-runnable",
+    "--dataset", benchmark,
 ]
 if dimensions:
     inventory_cmd.extend(["--dimension", dimensions])
@@ -293,13 +298,13 @@ PY
 }
 
 write_summaries() {
-  python3 - "${RESULTS_TSV}" "${summary_path}" "${markdown_path}" "${run_id}" "${eval_num}" "${dimensions}" <<'PY'
+  python3 - "${RESULTS_TSV}" "${summary_path}" "${markdown_path}" "${run_id}" "${eval_num}" "${dimensions}" "${dataset}" <<'PY'
 import csv
 import json
 from pathlib import Path
 import sys
 
-tsv_path, json_path, md_path, run_id, eval_num, dimensions = sys.argv[1:]
+tsv_path, json_path, md_path, run_id, eval_num, dimensions, dataset = sys.argv[1:]
 raw_rows = []
 if Path(tsv_path).exists():
     with open(tsv_path, encoding="utf-8", newline="") as f:
@@ -331,7 +336,7 @@ payload = {
 Path(json_path).write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
 lines = [
-    f"# RoboDojo Smoke Summary `{run_id}`",
+    f"# {dataset} Smoke Summary `{run_id}`",
     "",
     f"- eval_num: `{eval_num}`",
     f"- dimensions: `{dimensions or 'all'}`",
@@ -507,7 +512,7 @@ build_parallel_assignment() {
   local assignment_path="$2"
   python3 - "${env_cfg}" "${task_list_file}" "${assignment_path}" \
     "$(IFS=,; echo "${POLICY_GPU_WORKERS[*]}")" \
-    "$(IFS=,; echo "${ENV_GPU_WORKERS[*]}")" <<'PY'
+    "$(IFS=,; echo "${ENV_GPU_WORKERS[*]}")" "${dataset}" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -626,6 +631,7 @@ task_file = Path(sys.argv[2])
 assignment_path = Path(sys.argv[3])
 policy_gpus = [item for item in sys.argv[4].split(",") if item]
 env_gpus = [item for item in sys.argv[5].split(",") if item]
+benchmark = sys.argv[6]
 if len(policy_gpus) != len(env_gpus):
     raise SystemExit("policy/env gpu list length mismatch")
 if not policy_gpus:
@@ -639,7 +645,7 @@ tasks = []
 missing = []
 for task_name in task_names:
     key = f"{task_name}/{env_cfg}"
-    seconds = RUNTIME_WEIGHTS.get(key)
+    seconds = RUNTIME_WEIGHTS.get(key) if benchmark == "RoboDojo" else 1
     if seconds is None:
         missing.append(key)
         continue
@@ -650,7 +656,7 @@ if missing:
 tasks.sort(key=lambda item: (-item["seconds"], item["task"]))
 groups = partition(tasks, len(policy_gpus))
 payload = {
-    "weights_source": "embedded",
+    "weights_source": "embedded" if benchmark == "RoboDojo" else "equal_task_count",
     "env_cfg": env_cfg,
     "groups": [
         {
@@ -748,7 +754,7 @@ run_eval_for_task() {
   local task_host="${5:-}"
   local task_port="${6:-}"
   local task_run_id="${run_id}_${task}"
-  local result_path="${ROOT_DIR}/eval_result/RoboDojo/${task}/${policy_name}/${env_cfg}/${seed}_ckpt_name=${ckpt},action_type=${action_type}/${task_run_id}/_result.json"
+  local result_path="${ROOT_DIR}/eval_result/${dataset}/${task}/${policy_name}/${result_config}/${seed}_ckpt_name=${ckpt},action_type=${action_type}/${task_run_id}/_result.json"
   local log_path="${log_dir}/${task}.log"
   local rc elapsed eval_time message start_sec end_sec
 
@@ -807,6 +813,10 @@ run_eval_for_task() {
   elapsed=$((end_sec - start_sec))
 
   if [[ "${dry_run}" == "true" ]]; then
+    if [[ "${rc}" -ne 0 ]]; then
+      record_result_row "${target_tsv}" "FAIL" "${task}" "${rc}" "-" "${elapsed}" "${result_path}" "${log_path}" "dry-run command failed"
+      return 1
+    fi
     record_result_row "${target_tsv}" "DRY_RUN" "${task}" "${rc}" "-" "${elapsed}" "${result_path}" "${log_path}" "command rendered only"
     return 0
   fi
@@ -923,6 +933,8 @@ run_parallel_tasks() {
   local active_tasks_file assignment_path assignment_meta_dir fail_flag
   local worker_index policy_gpu_id env_gpu_id task_file worker_tsv total_seconds
   local task_host task_port bootstrap_task
+  local load_unit="s"
+  [[ "${dataset}" == RoboDojo ]] || load_unit=" tasks"
   local -a worker_pids=()
   local -a worker_tsvs=()
 
@@ -976,18 +988,18 @@ PY
     if [[ "${execution_mode}" == "client" ]]; then
       task_host="${CLIENT_HOST_WORKERS[worker_index]}"
       task_port="${CLIENT_PORT_WORKERS[worker_index]}"
-      echo "[smoke_all_tasks] group=${worker_index} host=${task_host} port=${task_port} env_gpu=${env_gpu_id} load=${total_seconds}s tasks=${task_names:-<empty>}"
+      echo "[smoke_all_tasks] group=${worker_index} host=${task_host} port=${task_port} env_gpu=${env_gpu_id} load=${total_seconds}${load_unit} tasks=${task_names:-<empty>}"
       run_parallel_group "${worker_index}" "${policy_gpu_id}" "${env_gpu_id}" "${task_file}" "${worker_tsv}" "${fail_flag}" "${task_host}" "${task_port}" &
     elif [[ "${execution_mode}" == "server" ]]; then
       task_host="${SERVER_HOST_WORKERS[worker_index]}"
       task_port="${SERVER_PORT_WORKERS[worker_index]}"
       bootstrap_task="$(head -n 1 "${task_file}" | tr -d '\r')"
-      echo "[smoke_all_tasks] group=${worker_index} bootstrap_task=${bootstrap_task:-<empty>} policy_gpu=${policy_gpu_id} bind=${task_host}:${task_port} load=${total_seconds}s tasks=${task_names:-<empty>}"
+      echo "[smoke_all_tasks] group=${worker_index} bootstrap_task=${bootstrap_task:-<empty>} policy_gpu=${policy_gpu_id} bind=${task_host}:${task_port} load=${total_seconds}${load_unit} tasks=${task_names:-<empty>}"
       run_server_for_group "${bootstrap_task}" "${policy_gpu_id}" "${task_host}" "${task_port}" &
     else
       task_host=""
       task_port=""
-      echo "[smoke_all_tasks] group=${worker_index} policy_gpu=${policy_gpu_id} env_gpu=${env_gpu_id} load=${total_seconds}s tasks=${task_names:-<empty>}"
+      echo "[smoke_all_tasks] group=${worker_index} policy_gpu=${policy_gpu_id} env_gpu=${env_gpu_id} load=${total_seconds}${load_unit} tasks=${task_names:-<empty>}"
       run_parallel_group "${worker_index}" "${policy_gpu_id}" "${env_gpu_id}" "${task_file}" "${worker_tsv}" "${fail_flag}" "${task_host}" "${task_port}" &
     fi
     worker_pids+=("$!")

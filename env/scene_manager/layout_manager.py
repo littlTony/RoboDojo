@@ -363,7 +363,7 @@ class LayoutManager:
             deep_resolve_paths(visual_cfg)
             visual_cfg = OmegaConf.to_container(visual_cfg, resolve=True)
         color_list = visual_cfg.get("color", None)
-        if color_list is not None and isinstance(color_list[0], (int, float)):
+        if color_list is not None and isinstance(color_list[0], int | float):
             color_list = [color_list]
         visual_material_usd_folder = None
         visual_material_mdl_folder = None
@@ -580,12 +580,20 @@ class LayoutManager:
                     return None
                 if default_pos is None or default_ori is None:
                     default_pos, default_ori = self.get_instance_pose(inst_name=obj_name, env_idx=env_idx)
-                if base_link is not None and Path(usd_path).exists():
-                    root_matrix = self.to_transformation_matrix(default_pos, default_ori)
+                ref_matrix = self.to_transformation_matrix(default_pos, default_ori)
+                if base_link is not None and usd_path is not None and Path(usd_path).exists():
                     link_local_matrix = _get_link_matrix_from_usd(usd_path, base_link)
-                    ref_matrix = root_matrix @ link_local_matrix
-                else:
-                    ref_matrix = self.to_transformation_matrix(default_pos, default_ori)
+                    ref_matrix = ref_matrix @ link_local_matrix
+                elif base_link is not None and obj_name is not None and env_idx is not None:
+                    # Reward queries use live link poses and do not pass a USD path.
+                    inst = self.get_scene_object(env_idx=env_idx, inst_name=obj_name)
+                    if inst is not None:
+                        link_pose = np.array(inst.get_link_pose(base_link), dtype=float, copy=True).reshape(-1)
+                        env_origin = self.scene_manager.env_origins[env_idx]
+                        if isinstance(env_origin, torch.Tensor):
+                            env_origin = env_origin.cpu().numpy()
+                        link_pose[:3] -= np.asarray(env_origin, dtype=float).reshape(-1)[:3]
+                        ref_matrix = pose_to_matrix(link_pose)
                 for c in center:
                     world_matrix = ref_matrix @ pose_to_matrix(c)
                     if ret == "matrix":
@@ -736,7 +744,6 @@ class LayoutManager:
 
     @staticmethod
     def required_keys(data: dict, keys: str | List[str], sep: str = "/") -> bool:
-
         def _is_missing(value) -> bool:
             return value is None or value == {}
 

@@ -11,8 +11,8 @@ class BenchmarkPaths:
     name: str = BENCHMARK
 
     def __post_init__(self):
-        if self.name not in ("RoboDojo", "MiVerse"):
-            raise ValueError(f"Unknown benchmark {self.name!r}; expected 'RoboDojo' or 'MiVerse'.")
+        if self.name not in ("RoboDojo", "MiVerse", "SparkArena"):
+            raise ValueError(f"Unknown benchmark {self.name!r}; expected 'RoboDojo', 'MiVerse', or 'SparkArena'.")
 
     @classmethod
     def from_config(cls, config):

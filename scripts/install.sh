@@ -137,7 +137,7 @@ PY
 # ── Step functions ─────────────────────────────────────────────────────────────
 setup_system() {
   local missing=()
-  for pkg in cmake build-essential ffmpeg git wget; do
+  for pkg in cmake build-essential ffmpeg git git-lfs wget; do
     dpkg -s "$pkg" &>/dev/null || missing+=("$pkg")
   done
   if [ ${#missing[@]} -gt 0 ]; then

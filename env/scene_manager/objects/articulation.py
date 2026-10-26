@@ -230,7 +230,7 @@ class ArticulationObject(SingleArticulation):
         for param in physics_params_to_randomize:
             if param in modified_config and modified_config[param] is not None:
                 original_value = modified_config[param]
-                if isinstance(original_value, (int, float)):
+                if isinstance(original_value, int | float):
                     variation = original_value * (ratio - 1)
                     min_val = original_value - variation
                     max_val = original_value + variation
@@ -238,7 +238,7 @@ class ArticulationObject(SingleArticulation):
                 elif isinstance(original_value, list) and len(original_value) > 0:
                     randomized_list = []
                     for val in original_value:
-                        if isinstance(val, (int, float)):
+                        if isinstance(val, int | float):
                             variation = val * (ratio - 1)
                             min_val = val - variation
                             max_val = val + variation
@@ -295,6 +295,8 @@ class ArticulationObject(SingleArticulation):
         return None
 
     def apply_saved_pose(self):
+        if self.physics_cfg.get("reset_drive", False):
+            self.set_joint_velocities(torch.zeros_like(self.get_joint_velocities()))
         self.set_current_joint_positions(self.initial_joint_positions)
         if self.physics_cfg.get("reset_drive", False):
             self.reset_drive_targets()
@@ -426,9 +428,7 @@ class ArticulationObject(SingleArticulation):
 
         for prim in Usd.PrimRange(root_prim):
             if not (
-                prim.IsA(UsdPhysics.PrismaticJoint)
-                or prim.IsA(UsdPhysics.RevoluteJoint)
-                or prim.IsA(UsdPhysics.Joint)
+                prim.IsA(UsdPhysics.PrismaticJoint) or prim.IsA(UsdPhysics.RevoluteJoint) or prim.IsA(UsdPhysics.Joint)
             ):
                 continue
             drive_type = self._get_joint_drive_type(prim)

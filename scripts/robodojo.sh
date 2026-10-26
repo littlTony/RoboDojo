@@ -184,7 +184,9 @@ EOF
     )
   fi
 
-  if [[ -n "${eval_num}" && "${eval_num}" != "native" ]]; then
+  if [[ "${eval_num}" == "native" ]]; then
+    unset EVAL_NUM
+  elif [[ -n "${eval_num}" ]]; then
     export EVAL_NUM="${eval_num}"
   fi
 
@@ -506,7 +508,9 @@ EOF
 
   local additional_info="ckpt_name=${ckpt},action_type=${action_type}"
 
-  if [[ -n "${eval_num}" && "${eval_num}" != "native" ]]; then
+  if [[ "${eval_num}" == "native" ]]; then
+    unset EVAL_NUM
+  elif [[ -n "${eval_num}" ]]; then
     export EVAL_NUM="${eval_num}"
   fi
 
@@ -574,7 +578,19 @@ run_sweep() {
 }
 
 run_summarize() {
-  python3 "${ROOT_DIR}/scripts/internal/summarize_result.py" "$@"
+  local dataset="RoboDojo"
+  local args=()
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --dataset) need_value "$@"; dataset="$2"; shift 2 ;;
+      *) args+=("$1"); shift ;;
+    esac
+  done
+  case "${dataset}" in
+    RoboDojo) python3 "${ROOT_DIR}/scripts/internal/summarize_result.py" "${args[@]}" ;;
+    MiVerse|SparkArena) python3 "${ROOT_DIR}/scripts/${dataset}/summarize_result.py" "${args[@]}" ;;
+    *) echo "[robodojo summarize] Unknown dataset: ${dataset}" >&2; return 2 ;;
+  esac
 }
 
 if [[ $# -lt 1 ]]; then

@@ -1,0 +1,84 @@
+Rigid:
+  -
+    common:
+      xlim: [-0.20, 0.20]
+      ylim: [-0.22, -0.08]
+      rotate_rand: True
+      rotate_deg: [-90, 90]
+      relative_plane: "Table"
+      place_tag: "up"
+      margin: 0.01
+
+    category:
+      -
+        name: "garage"
+        index: [9]
+
+    select_mode:
+      nums: 1
+      mode: "allow_duplicate"
+      label: ["garage"]
+
+  -
+    common:
+      xlim: [-0.45, 0.45]
+      ylim: [-0.30, 0.0]
+      rotate_rand: false
+      relative_plane: "Table"
+      margin: 0.01
+      relative_to:
+        label: "garage"
+        axis: "x"
+        distance: [0.12, 0.12]
+        align_ori: true
+
+    category:
+      -
+        name: "cube"
+        index: [7]
+
+    select_mode:
+      nums: 1
+      mode: "allow_duplicate"
+      label: ["cube_right"]
+
+  -
+    common:
+      xlim: [-0.45, 0.45]
+      ylim: [-0.30, 0.0]
+      rotate_rand: false
+      relative_plane: "Table"
+      margin: 0.01
+      relative_to:
+        label: "garage"
+        axis: "x"
+        distance: [-0.12, -0.12]
+        align_ori: true
+
+    category:
+      -
+        name: "cube"
+        index: [7]
+
+    select_mode:
+      nums: 1
+      mode: "allow_duplicate"
+      label: ["cube_left"]
+
+  -
+    common:
+      xlim: [-0.20, 0.20]
+      ylim: [-0.22, -0.08]
+      rotate_rand: False
+      relative_plane: "Table"
+      margin: 0.0
+
+    category:
+      -
+        name: "cube_cushion"
+        index: [0]
+
+    select_mode:
+      nums: 1
+      mode: "allow_duplicate"
+      label: ["cube_cushion"]

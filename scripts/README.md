@@ -6,8 +6,11 @@
 | --- | --- |
 | [robodojo.sh](robodojo.sh) | Main CLI: `doctor`, `eval`, `client`, `smoke`, `benchmark`, `dimensions`, `summarize`, `tasks` |
 | [install.sh](install.sh) | One-time environment setup (conda, Isaac Sim, submodules) |
-| [init_assets.sh](init_assets.sh) | Download robot/object assets |
+| [init_assets.sh](init_assets.sh) | Download assets or import SparkArena resources with `--dataset SparkArena --source /path/to/Assets` |
 | [eval_policy.sh](eval_policy.sh) | Isaac Sim eval client (called by `robodojo.sh client` and XPolicyLab) |
+
+SparkArena reuses the same entry points with `--dataset SparkArena` and
+`--env-cfg tianji_marvin_wuji`. See [SparkArena/README.md](SparkArena/README.md).
 
 ## Typical eval flow
 

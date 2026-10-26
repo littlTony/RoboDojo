@@ -1,0 +1,23 @@
+Rigid:
+  -
+    common:
+      xlim: [-0.45, 0.45]
+      ylim: [-0.3, -0.05]
+      rotate_deg: 25
+      rotate_rand: True
+      relative_plane: "Table"
+
+    category:
+      -
+        name: "bowl"
+
+    select_mode:
+      nums: [3]
+      mode: "same"
+      label: ["bowl0", "bowl1", "bowl2"]
+
+ProhibitedArea:
+  -
+    [0.35, -0.1, 0.45, 0.0]
+  -
+    [-0.45, -0.1, -0.35, 0.0]

@@ -289,7 +289,7 @@ class RobotManager:
         ``robot_index`` addresses ``config.robot.robots`` entries, so the two
         logical arms of a coupled robot share one configured envelope.
         """
-        if isinstance(robot_index, bool) or not isinstance(robot_index, (int, np.integer)):
+        if isinstance(robot_index, bool) or not isinstance(robot_index, int | np.integer):
             raise TypeError(f"robot_index must be an integer, got {robot_index!r}.")
         robot_index = int(robot_index)
         if not 0 <= robot_index < len(self._configured_collision_bboxes):
@@ -297,7 +297,7 @@ class RobotManager:
                 f"robot_index {robot_index} is outside the configured physical robot range "
                 f"[0, {len(self._configured_collision_bboxes)})."
             )
-        if isinstance(env_idx, bool) or not isinstance(env_idx, (int, np.integer)):
+        if isinstance(env_idx, bool) or not isinstance(env_idx, int | np.integer):
             raise TypeError(f"env_idx must be an integer, got {env_idx!r}.")
         env_idx = int(env_idx)
         if not 0 <= env_idx < self.num_envs:
@@ -1217,6 +1217,14 @@ class RobotManager:
 
 
 ROBOT_CLASS_REGISTRY = {
+    "tianji_marvin_wuji_left": {
+        "module": "tianji_marvin_wuji",
+        "classes": ("LeftTianjiMarvinWuji",),
+    },
+    "tianji_marvin_wuji_right": {
+        "module": "tianji_marvin_wuji",
+        "classes": ("RightTianjiMarvinWuji",),
+    },
     "m92uw": {
         "module": "m92uw",
         "classes": ("LeftM92UW", "RightM92UW"),
@@ -1233,6 +1241,8 @@ ROBOT_CLASS_REGISTRY = {
 
 
 ROBOT_CONFIG_REGISTRY = {
+    "tianji_marvin_wuji_left": "tianji_marvin_wuji_left",
+    "tianji_marvin_wuji_right": "tianji_marvin_wuji_right",
     "m92uw": "m92uw",
     "franka": "franka",
     "x5": "x5",

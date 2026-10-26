@@ -29,6 +29,7 @@ class EvalAppLauncher(AppLauncher):
 
 
 parser = argparse.ArgumentParser()
+parser.add_argument("--bench_name", default="", help="Optional benchmark; must match the env profile.")
 parser.add_argument("--task_name", type=str)
 parser.add_argument("--num_envs", type=int, default=1, help="Number of environments to spawn.")
 parser.add_argument(
@@ -91,6 +92,10 @@ from utils.load_file import load_yaml
 
 eval_profile = load_yaml(os.path.join(ENV_CONFIG_PATH, args_cli.env_cfg_type + ".yml"))
 benchmark_paths = BenchmarkPaths.from_config(eval_profile)
+if args_cli.bench_name and args_cli.bench_name != benchmark_paths.name:
+    parser.error(f"--bench_name {args_cli.bench_name} does not match profile benchmark {benchmark_paths.name}")
+if args_cli.headless:
+    args_cli.video = True
 
 
 class PhysXBrokenError(Exception):
@@ -318,10 +323,7 @@ def main():
     )
     capped_num_envs = resolve_random_task_num_envs(task_name, num_envs, env_cfg.sim)
     if capped_num_envs != num_envs:
-        print(
-            f"[main] Random task {task_name}: num_envs capped "
-            f"{num_envs} -> {capped_num_envs} "
-        )
+        print(f"[main] Random task {task_name}: num_envs capped {num_envs} -> {capped_num_envs} ")
     num_envs = capped_num_envs
     if not eval_batch and num_envs != 1:
         print(
@@ -356,6 +358,10 @@ def main():
         from src.eval_client.nav_eval_env import create_nav_eval_env
 
         env = create_nav_eval_env(env_cfg, simulation_app, resume_state=resume_state)
+    elif benchmark_paths.name == "SparkArena":
+        from src.eval_client.spark_eval_env import create_sparkarena_eval_env
+
+        env = create_sparkarena_eval_env(env_cfg, simulation_app, resume_state=resume_state)
     else:
         env = create_eval_env(env_cfg, simulation_app, resume_state=resume_state)
     eval_time = env.success_nums + env.fail_nums

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""List runnable RoboDojo tasks without importing Isaac-dependent task modules."""
+"""List runnable benchmark tasks without importing Isaac-dependent task modules."""
 
 from __future__ import annotations
 
@@ -12,12 +12,9 @@ from typing import Any
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
 BENCHMARK = "RoboDojo"
-TASK_DIR = ROOT_DIR / "task" / BENCHMARK / "tasks"
-CONFIG_DIR = ROOT_DIR / "task" / BENCHMARK / "config"
 
 sys.path.insert(0, str(ROOT_DIR))
 from task.RoboDojo import task_registry  # noqa: E402
-
 
 # Canonical capability groups from https://robodojo-benchmark.com/doc/sim-tasks/.
 # Generalization tasks also have runnable ``*_random`` configurations; those
@@ -132,17 +129,18 @@ def _module_classes(path: Path) -> set[str]:
     return {node.name for node in tree.body if isinstance(node, ast.ClassDef)}
 
 
-def _task_records() -> list[dict[str, Any]]:
+def _task_records(benchmark: str = BENCHMARK) -> list[dict[str, Any]]:
+    task_root = ROOT_DIR / "task" / benchmark
     records = []
-    for path in sorted(TASK_DIR.glob("*.py")):
+    for path in sorted((task_root / "tasks").glob("*.py")):
         if path.name == "__init__.py":
             continue
         name = path.stem
         classes = _module_classes(path)
-        config_path = task_registry.task_config_path(CONFIG_DIR, name)
+        config_path = task_registry.task_config_path(task_root / "config", name)
         record = {
             "name": name,
-            "dimension": _dimension_for_task(name),
+            "dimension": _dimension_for_task(name) if benchmark == BENCHMARK else None,
             "variant": "random" if name.endswith("_random") else "standard",
             "module": str(path.relative_to(ROOT_DIR)),
             "class_name": name,
@@ -165,16 +163,17 @@ def _inventory_counts(tasks: list[dict[str, Any]], config_only: list[str]) -> di
     }
 
 
-def build_inventory() -> dict[str, Any]:
-    tasks = _task_records()
+def build_inventory(benchmark: str = BENCHMARK) -> dict[str, Any]:
+    task_root = ROOT_DIR / "task" / benchmark
+    tasks = _task_records(benchmark)
     task_names = {task["name"] for task in tasks}
-    config_names = {path.stem for path in CONFIG_DIR.glob("*.yml") if not path.name.startswith("_")}
+    config_names = {path.stem for path in (task_root / "config").glob("*.yml") if not path.name.startswith("_")}
     config_only = sorted(config_names - task_names)
     inventory = {
-        "benchmark": BENCHMARK,
+        "benchmark": benchmark,
         "root": str(ROOT_DIR),
-        "task_dir": str(TASK_DIR.relative_to(ROOT_DIR)),
-        "config_dir": str(CONFIG_DIR.relative_to(ROOT_DIR)),
+        "task_dir": str((task_root / "tasks").relative_to(ROOT_DIR)),
+        "config_dir": str((task_root / "config").relative_to(ROOT_DIR)),
         "counts": _inventory_counts(tasks, config_only),
         "tasks": tasks,
         "config_only": config_only,
@@ -212,8 +211,13 @@ def _print_markdown(inventory: dict[str, Any]) -> None:
 def _print_dimensions(inventory: dict[str, Any], output_format: str) -> None:
     runnable = [task for task in inventory["tasks"] if task["runnable"]]
     rows = []
-    for dimension, canonical_tasks in DIMENSION_TASKS.items():
-        runtime_tasks = [task["name"] for task in runnable if task["dimension"] == dimension]
+    groups = (
+        DIMENSION_TASKS
+        if inventory["benchmark"] == BENCHMARK
+        else {"all": tuple(task["name"] for task in inventory["tasks"])}
+    )
+    for dimension, canonical_tasks in groups.items():
+        runtime_tasks = [task["name"] for task in runnable if dimension == "all" or task["dimension"] == dimension]
         rows.append(
             {
                 "dimension": dimension,
@@ -235,16 +239,14 @@ def _print_dimensions(inventory: dict[str, Any], output_format: str) -> None:
             )
     else:
         for row in rows:
-            print(
-                f"{row['dimension']} ({row['canonical_count']} canonical, "
-                f"{row['runnable_count']} runnable configs)"
-            )
+            print(f"{row['dimension']} ({row['canonical_count']} canonical, {row['runnable_count']} runnable configs)")
             for task in row["runnable_tasks"]:
                 print(f"  {task}")
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--dataset", default=BENCHMARK, choices=("RoboDojo", "MiVerse", "SparkArena"))
     parser.add_argument(
         "--format",
         choices=("plain", "json", "markdown"),
@@ -281,7 +283,12 @@ def main() -> int:
     args = parser.parse_args()
 
     try:
-        selected_dimensions = _parse_dimensions(args.dimension)
+        if args.dataset != BENCHMARK:
+            if any(item.strip().lower() != "all" for value in args.dimension for item in value.split(",")):
+                raise ValueError(f"{args.dataset} has no capability groups; use --dimension all")
+            selected_dimensions = []
+        else:
+            selected_dimensions = _parse_dimensions(args.dimension)
     except ValueError as exc:
         parser.error(str(exc))
 
@@ -289,18 +296,14 @@ def main() -> int:
         print(",".join(_normalized_dimension_names(selected_dimensions)))
         return 0
 
-    inventory = build_inventory()
+    inventory = build_inventory(args.dataset)
     if args.list_dimensions:
         _print_dimensions(inventory, args.format)
     else:
         if selected_dimensions:
             inventory = dict(inventory)
-            inventory["tasks"] = [
-                task for task in inventory["tasks"] if task["dimension"] in selected_dimensions
-            ]
-            inventory["counts"] = _inventory_counts(
-                inventory["tasks"], inventory["config_only"]
-            )
+            inventory["tasks"] = [task for task in inventory["tasks"] if task["dimension"] in selected_dimensions]
+            inventory["counts"] = _inventory_counts(inventory["tasks"], inventory["config_only"])
         if args.format == "json":
             print(json.dumps(inventory, indent=2, sort_keys=True))
         elif args.format == "markdown":
@@ -309,14 +312,16 @@ def main() -> int:
             _print_plain(inventory, only_runnable=args.only_runnable)
 
     if args.check:
-        all_tasks = build_inventory()["tasks"]
-        broken = [task for task in all_tasks if not task["runnable"] or not task["dimension"]]
+        all_tasks = build_inventory(args.dataset)["tasks"]
+        broken = [
+            task for task in all_tasks if not task["runnable"] or (args.dataset == BENCHMARK and not task["dimension"])
+        ]
         if broken:
             for task in broken:
                 issues = []
                 if not task["runnable"]:
                     issues.append("not runnable")
-                if not task["dimension"]:
+                if args.dataset == BENCHMARK and not task["dimension"]:
                     issues.append("missing capability dimension")
                 print(f"[ERROR] Task {task['name']}: {', '.join(issues)}", file=sys.stderr)
             return 1

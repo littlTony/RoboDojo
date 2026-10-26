@@ -9,6 +9,26 @@ info()  { echo -e "\e[1;32m>>> $*\e[0m"; }
 warn()  { echo -e "\e[1;33m>>> $*\e[0m"; }
 error() { echo -e "\e[1;31m[ERROR] $*\e[0m"; exit 1; }
 
+dataset="RoboDojo"
+asset_source=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --dataset|--source)
+      [[ $# -ge 2 && -n "$2" && "$2" != --* ]] || error "Missing value for $1"
+      if [[ "$1" == --dataset ]]; then dataset="$2"; else asset_source="$2"; fi
+      shift 2
+      ;;
+    -h|--help)
+      echo "Usage: bash scripts/init_assets.sh [--dataset RoboDojo|MiVerse|SparkArena] [--source /path/to/Assets]"
+      echo "--source imports SparkArena assets from a local Assets directory without downloading."
+      exit 0
+      ;;
+    *) error "Unknown argument: $1" ;;
+  esac
+done
+case "$dataset" in RoboDojo|MiVerse|SparkArena) ;; *) error "Unknown dataset: $dataset" ;; esac
+[[ -z "$asset_source" || "$dataset" == SparkArena ]] || error "--source currently supports SparkArena only."
+
 # Hugging Face dataset repo. The remote Assets folder is stored at repo root:
 #   hf://datasets/RoboDojo-Benchmark/RoboDojo/Assets/
 HF_REPO_ID="${HF_REPO_ID:-RoboDojo-Benchmark/RoboDojo}"
@@ -18,6 +38,18 @@ HF_REPO_URL="${HF_REPO_URL:-https://huggingface.co/datasets/${HF_REPO_ID}}"
 TARGET_DIR="${CURRENT_DIR}/Assets"
 ASSET_CACHE_DIR="${CURRENT_DIR}/.cache/robodojo_assets_repo"
 REQUIRED_ASSET_SUBDIRS=(Robots Object Material Eval_Layout)
+SPARK_ASSET_PATHS=()
+if [[ "$dataset" == SparkArena ]]; then
+  SPARK_ASSET_PATHS=(
+    Robots/tianji_marvin_wuji
+    Object/SparkArena
+    Eval_Layout/SparkArena/tianji_marvin_wuji
+    Room/Simple_Room_nolight
+    Material/material_0116
+    Material/material_0122
+    Background/brown_photostudio_02_4k.hdr
+  )
+fi
 
 assets_ready() {
   if [[ ! -d "${TARGET_DIR}" ]]; then
@@ -29,6 +61,25 @@ assets_ready() {
     if [[ ! -d "${TARGET_DIR}/${subdir}" ]]; then
       return 1
     fi
+  done
+  for subdir in "${SPARK_ASSET_PATHS[@]}"; do
+    [[ -e "${TARGET_DIR}/${subdir}" ]] || return 1
+  done
+}
+
+copy_local_assets() {
+  [[ -d "$asset_source" ]] || error "Local Assets directory not found: $asset_source"
+  asset_source="$(cd "$asset_source" && pwd -P)"
+  [[ "$asset_source" != "$(realpath -m "$TARGET_DIR")" ]] || error "Source and target Assets must differ."
+  local path
+  # Validate the source before writing anything to the destination.
+  for path in "${SPARK_ASSET_PATHS[@]}"; do
+    [[ -e "$asset_source/$path" ]] || error "Missing source asset: $asset_source/$path"
+  done
+  for path in "${SPARK_ASSET_PATHS[@]}"; do
+    info "Importing $path"
+    mkdir -p "$TARGET_DIR/$(dirname "$path")"
+    cp -aLn --reflink=auto -- "$asset_source/$path" "$TARGET_DIR/$(dirname "$path")/"
   done
 }
 
@@ -73,6 +124,9 @@ download_assets() {
   fi
 
   if [[ -d "${TARGET_DIR}" ]]; then
+    if [[ "$dataset" == SparkArena ]]; then
+      error "Assets is missing SparkArena resources. Add them with --dataset SparkArena --source /path/to/Assets."
+    fi
     local partial_dir="${TARGET_DIR}.partial.$(date +%Y%m%d_%H%M%S)"
     warn "'${TARGET_DIR}' exists but is incomplete."
     warn "Moving incomplete directory to '${partial_dir}' before recreating Assets."
@@ -119,10 +173,20 @@ verify_assets() {
       error "Asset subdir '${subdir}' missing under ${TARGET_DIR}; download incomplete."
     fi
   done
+  for subdir in "${SPARK_ASSET_PATHS[@]}"; do
+    [[ -e "${TARGET_DIR}/${subdir}" ]] || error "Missing SparkArena asset: ${subdir}; import with --source or use a complete HF_REPO_ID."
+  done
 }
 
-check_download_tools
-download_assets
+if [[ -n "$asset_source" ]]; then
+  copy_local_assets
+else
+  check_download_tools
+  download_assets
+fi
 verify_assets
+if [[ "$dataset" == SparkArena ]]; then
+  (cd "$CURRENT_DIR" && python3 utils/update_embodiment_config_path.py)
+fi
 
 info "Assets directory is ready: ${TARGET_DIR}"
