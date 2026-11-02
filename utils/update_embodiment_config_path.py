@@ -14,6 +14,36 @@ YELLOW = "\033[0;33m"
 GREEN = "\033[0;32m"
 
 
+def update_tianji_usd_paths(assets_path):
+    """Keep the bundled Tianji camera texture independent of its source machine."""
+    robot_dir = os.path.join(assets_path, "Assets", "Robots", "tianji_marvin_wuji")
+    if not os.path.isdir(robot_dir):
+        return
+    from pxr import Sdf
+
+    texture = os.path.join(robot_dir, "configuration", "materials", "textures", "camera_texture0.png")
+    for usd_path in glob.glob(os.path.join(robot_dir, "**", "*.usd"), recursive=True):
+        layer = Sdf.Layer.FindOrOpen(usd_path)
+        changed = []
+
+        def update_texture(path):
+            spec = layer.GetObjectAtPath(path)
+            if isinstance(spec, Sdf.AttributeSpec) and spec.typeName == Sdf.ValueTypeNames.Asset:
+                value = spec.default
+                if isinstance(value, Sdf.AssetPath) and os.path.basename(value.path) == "camera_texture0.png":
+                    if not os.path.isfile(texture):
+                        raise FileNotFoundError(texture)
+                    relative = os.path.relpath(texture, os.path.dirname(usd_path))
+                    if value.path != relative:
+                        spec.default = Sdf.AssetPath(relative)
+                        changed.append(path)
+
+        layer.Traverse(Sdf.Path.absoluteRootPath, update_texture)
+        if changed:
+            layer.Save()
+            print(f"Updated Tianji texture paths: {usd_path}")
+
+
 def prompt_path():
     answer = input("Do you want to manually specify the absolute path to the Assets directory? (y/n): ")
     if answer.lower() != "y":
@@ -71,6 +101,10 @@ def main():
 
             new_content = content.replace("${ASSETS_PATH}", assets_path)
             new_content = new_content.replace("$ASSETS_PATH", assets_path)
+            if os.path.basename(os.path.dirname(tmp_file)) == "tianji_marvin_wuji":
+                new_content = new_content.replace(
+                    "/Assets/Robots/tianji_wujihand2/", "/Assets/Robots/tianji_marvin_wuji/"
+                )
 
             with open(target_file, "w") as f:
                 f.write(new_content)
@@ -87,6 +121,12 @@ def main():
             print_color(f"  ✗ Replacement failed: {e}", YELLOW)
             count_error += 1
 
+    try:
+        update_tianji_usd_paths(assets_path)
+    except Exception as e:
+        print_color(f"Failed to update Tianji USD texture paths: {e}", YELLOW)
+        count_error += 1
+
     # Summary
     print()
     print_color("Processing complete!", BLUE)
@@ -94,6 +134,7 @@ def main():
     print_color(f"Successfully updated: {count_updated} files", GREEN)
     if count_error > 0:
         print_color(f"Failed to process: {count_error} files", YELLOW)
+        sys.exit(1)
 
     print()
     print_color("All template files have been processed!", GREEN)

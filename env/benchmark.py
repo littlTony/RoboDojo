@@ -19,32 +19,33 @@ def encode_result_info(additional_info: str) -> str:
     encoded paths from legacy labels containing literal percent escapes.
     """
     directory_info = additional_info
-    if "/" in additional_info or "\\" in additional_info or additional_info.startswith(
-        (_ENCODED_INFO_PREFIX, _HASHED_INFO_PREFIX)
+    if (
+        "/" in additional_info
+        or "\\" in additional_info
+        or additional_info.startswith((_ENCODED_INFO_PREFIX, _HASHED_INFO_PREFIX))
     ):
         directory_info = _ENCODED_INFO_PREFIX + quote(additional_info, safe="=, ")
     # Leave room for the seed prefix within a filesystem's 255-byte component
     # limit. Keep the label reversible without adding result JSON metadata.
     if len(directory_info.encode("utf-8")) > 200:
-        raise ValueError(
-            "Encoded result label exceeds 200 bytes; use a shorter checkpoint name or path."
-        )
+        raise ValueError("Encoded result label exceeds 200 bytes; use a shorter checkpoint name or path.")
     return directory_info
 
 
 def decode_result_info(directory_info: str, result_path: str | Path | None = None) -> str:
     """Recover the original run label for display and checkpoint filtering."""
     if directory_info.startswith(_ENCODED_INFO_PREFIX):
-        return unquote(directory_info[len(_ENCODED_INFO_PREFIX):])
+        return unquote(directory_info[len(_ENCODED_INFO_PREFIX) :])
     if directory_info.startswith(_HASHED_INFO_PREFIX):
         if result_path is None:
             raise ValueError("A hashed experiment label requires its result JSON metadata")
         payload = json.loads(Path(result_path).read_text(encoding="utf-8"))
         info = payload.get("additional_info") if isinstance(payload, dict) else None
         # Read older hashed results without generating new metadata-dependent labels.
-        if not isinstance(info, str) or (
-            _HASHED_INFO_PREFIX + hashlib.sha256(info.encode("utf-8")).hexdigest()
-        ) != directory_info:
+        if (
+            not isinstance(info, str)
+            or (_HASHED_INFO_PREFIX + hashlib.sha256(info.encode("utf-8")).hexdigest()) != directory_info
+        ):
             raise ValueError("Result additional_info does not match its hashed experiment label")
         return info
     return directory_info
@@ -55,12 +56,12 @@ class BenchmarkPaths:
     name: str = BENCHMARK
 
     def __post_init__(self):
-        if self.name != "MobileArena":
-            raise ValueError(f"Unknown benchmark {self.name!r}; expected 'MobileArena'.")
+        if self.name not in ("MobileArena", "SparkArena"):
+            raise ValueError(f"Unknown benchmark {self.name!r}; expected 'MobileArena' or 'SparkArena'.")
 
     @classmethod
     def from_config(cls, config):
-        """Read a MobileArena evaluation profile."""
+        """Read the benchmark selected by an evaluation profile."""
         return cls(config.get("benchmark", BENCHMARK))
 
     @property

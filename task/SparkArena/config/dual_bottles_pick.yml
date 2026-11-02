@@ -1,0 +1,37 @@
+Rigid:
+  -
+    common:
+      xlim: [0.0, 0.4]
+      ylim: [-0.32, -0.05]
+      rotate_rand: True
+      rotate_deg: 25
+      relative_plane: "Table"
+      margin: 0.02
+
+    category:
+      -
+        name: "bottle"
+        index: [0, 2, 5, 22, 25, 41, 50, 55, 59, 60]
+
+    select_mode:
+      nums: 1
+      mode: "unique"
+      label: ["bottle0"]
+  -
+    common:
+      xlim: [-0.4, 0.0]
+      ylim: [-0.32, -0.05]
+      rotate_rand: True
+      rotate_deg: 25
+      relative_plane: "Table"
+      margin: 0.02
+
+    category:
+      -
+        name: "bottle"
+        index: [0, 2, 5, 22, 25, 41, 50, 55, 59, 60]
+
+    select_mode:
+      nums: 1
+      mode: "unique"
+      label: ["bottle1"]

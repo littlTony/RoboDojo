@@ -1,0 +1,39 @@
+Articulation:
+  -
+    common:
+      xlim: [0.0, 0.05]
+      ylim: [-0.15, -0.10]
+      relative_plane: "Table"
+      rotate_rand: True
+      rotate_deg: 45
+      place_tag: "up"
+      margin: 0.01
+
+    category:
+      -
+        name: "mouse"
+        index: [0]
+
+    select_mode:
+      nums: 1
+      mode: "unique"
+      label: ["mouse"]
+
+Geometry:
+  -
+    common:
+      xlim: [0.25, 0.30]
+      ylim: [-0.20, -0.1]
+      rotate_rand: False
+      relative_plane: "Table"
+      margin: 0.01
+
+    category:
+      -
+        name: "mousemat"
+        index: [0]
+
+    select_mode:
+      nums: 1
+      mode: "unique"
+      label: ["mousemat"]

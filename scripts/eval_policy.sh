@@ -128,6 +128,7 @@ fi
 
 if [[ -n "${eval_batch}" ]]; then
   echo "[INFO] eval_batch     = ${eval_batch}"
+  extra_args+=(--eval_batch "${eval_batch}")
 fi
 
 # Read render_interval / env.num_envs from yaml (fallback if missing)

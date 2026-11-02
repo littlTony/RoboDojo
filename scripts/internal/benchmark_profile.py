@@ -15,6 +15,11 @@ BENCHMARKS = {
         "default_task": "place_bread_in_oven",
         "summary_script": "scripts/MobileArena/summarize_result.py",
     },
+    "SparkArena": {
+        "default_env_cfg": "tianji_marvin_wuji",
+        "default_task": "stack_bowls",
+        "summary_script": "scripts/SparkArena/summarize_result.py",
+    },
 }
 
 

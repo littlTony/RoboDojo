@@ -1,0 +1,27 @@
+# Configuration names follow the current development RoboDojo profile.
+benchmark: SparkArena
+config_name: tianji_marvin_wuji
+
+config:
+  sim: sim_config
+  scene: tianji_tabletop
+  robot: tianji_marvin_wuji
+  camera: tianji_camera
+
+observation:
+  collect_freq: 25
+  capture_render_passes: 2
+  robot:
+    joint_states: true
+    world_ee_state: true
+  vision:
+    extrinsic_matrix: true
+
+domain_randomization:
+  random_background: false
+  random_table: false
+  random_ground: false
+
+description:
+  seen: 50
+  unseen: 10

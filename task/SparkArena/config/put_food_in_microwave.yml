@@ -1,0 +1,35 @@
+Articulation:
+  -
+    common:
+      xlim: [0.0, 0.0]
+      ylim: [-0.1, -0.1]
+      relative_plane: "Table"
+
+    category:
+      -
+        name: "microwave"
+        index: [1]
+
+    select_mode:
+      nums: [1]
+      mode: "allow_duplicate"
+      label: ["microwave"]
+
+Rigid:
+  -
+    common:
+      xlim: [0.0, 0.35]
+      ylim: [-0.3, -0.2]
+      relative_plane: "Table"
+      check_mode: "enforce"
+      margin: 0.0
+
+    category:
+      -
+        name: "bread"
+        index: [1]
+
+    select_mode:
+      nums: [1]
+      mode: "allow_duplicate"
+      label: ["bread"]

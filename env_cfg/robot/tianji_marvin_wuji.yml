@@ -1,0 +1,35 @@
+robots:
+- robot_type: arm
+  robot_name: tianji_marvin_wuji_left
+  coupled: false
+  need_planner: true
+  ik_solver_type: curobo
+  default_root_pos:
+  - 0
+  - -0.78
+  - 0.18
+  default_root_rot:
+  - 0.707
+  - 0
+  - 0
+  - 0.707
+  grasp_perfect_direction:
+  - front_right
+  - front_left
+- robot_type: arm
+  robot_name: tianji_marvin_wuji_right
+  coupled: false
+  need_planner: true
+  ik_solver_type: curobo
+  default_root_pos:
+  - 0
+  - -0.78
+  - 0.18
+  default_root_rot:
+  - 0.707
+  - 0
+  - 0
+  - 0.707
+  grasp_perfect_direction:
+  - front_right
+  - front_left

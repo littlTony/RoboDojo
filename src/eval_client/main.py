@@ -32,6 +32,11 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--task_name", type=str)
 parser.add_argument("--num_envs", type=int, default=1, help="Number of environments to spawn.")
 parser.add_argument(
+    "--eval_batch",
+    choices=("true", "false"),
+    help="Override the external server's batch capability; otherwise use the local deploy.yml.",
+)
+parser.add_argument(
     "--env_cfg_type",
     type=str,
     required=True,
@@ -91,6 +96,8 @@ from utils.load_file import load_yaml
 
 eval_profile = load_yaml(os.path.join(ENV_CONFIG_PATH, args_cli.env_cfg_type + ".yml"))
 benchmark_paths = BenchmarkPaths.from_config(eval_profile)
+if args_cli.headless and benchmark_paths.name == "SparkArena":
+    args_cli.video = True
 
 
 class PhysXBrokenError(Exception):
@@ -161,6 +168,8 @@ from utils.pipeline_utils import *
 
 
 def _eval_batch_from_deploy(policy_name):
+    if args_cli.eval_batch is not None:
+        return args_cli.eval_batch == "true"
     deploy_yml_path = os.path.join(ROOT_DIR, "XPolicyLab", "policy", policy_name, "deploy.yml")
     deploy_yml = load_yaml(deploy_yml_path) if os.path.isfile(deploy_yml_path) else {}
     return bool(deploy_yml.get("eval_batch", False))
@@ -345,7 +354,12 @@ def main():
     env_cfg.sim.seed = [0 for _ in range(num_envs)]
     run_id = os.environ["ROBODOJO_RUN_ID"]
     resume_state = _load_resume_manifest(eval_cfg, run_id)
-    env = create_nav_eval_env(env_cfg, simulation_app, resume_state=resume_state)
+    if benchmark_paths.name == "SparkArena":
+        from src.eval_client.spark_eval_env import create_sparkarena_eval_env
+
+        env = create_sparkarena_eval_env(env_cfg, simulation_app, resume_state=resume_state)
+    else:
+        env = create_nav_eval_env(env_cfg, simulation_app, resume_state=resume_state)
     eval_time = env.success_nums + env.fail_nums
     if eval_time >= eval_num:
         # Already complete on resume - nothing left to do.

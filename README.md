@@ -4,10 +4,15 @@ This checkout evaluates **MobileArena**: eight mobile manipulation tasks and
 their `_l` (language) and `_s` (spatial) variants, for 24 runnable tasks.
 It uses NVIDIA Isaac Sim / IsaacLab and XPolicyLab policy servers.
 
-MobileArena is the only supported benchmark and the default for
+MobileArena is the default benchmark for
 `bash scripts/evaluate.sh <command>`. Explicit `--bench MobileArena` is optional.
 See the [task and policy guide](scripts/MobileArena/README.md),
 [CLI reference](scripts/README.md), and [Docker guide](docker/README.md).
+
+**SparkArena** adds seven tabletop tasks for `tianji_marvin_wuji`. Select
+`--bench SparkArena` to connect the simulator to an existing policy server;
+see the [SparkArena guide](scripts/SparkArena/README.md) for asset import,
+single-task and batch evaluation. Model code and weights stay on the server.
 
 The shared simulation framework derives from RoboDojo. The repository directory,
 simulator Conda environment (`RoboDojo`), shared runtime environment variables,

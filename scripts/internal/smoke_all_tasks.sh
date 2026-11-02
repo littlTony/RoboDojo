@@ -20,6 +20,7 @@ env_gpu_ids=""
 policy_env=""
 eval_env="RoboDojo"
 eval_num="${EVAL_NUM:-1}"
+eval_batch=""
 policy_name=""
 policy_host=""
 policy_port=""
@@ -61,7 +62,8 @@ Options:
   --markdown PATH     Markdown summary (same default directory as --summary)
   --run-id ID         Stable run id used in result paths and summaries.
   --eval-num NUM      Episode count for each task (default: 1). Use `native` to use per-task counts from _task.yml.
-  --bench NAME        Benchmark: MobileArena (default); --dataset is an alias.
+  --eval-batch BOOL   External server batch capability in client mode: true or false.
+  --bench NAME        Benchmark: MobileArena (default) or SparkArena; --dataset is an alias.
   --ckpt NAME         Policy checkpoint name (required)
   --env-cfg NAME      Profile stem (default: mobile_arena)
   --expert-num NUM    Expert data count argument (default: 100)
@@ -116,6 +118,7 @@ while [[ $# -gt 0 ]]; do
     --markdown) need_value "$@"; markdown_path="$2"; shift 2 ;;
     --run-id) need_value "$@"; run_id="$2"; run_id_explicit="true"; shift 2 ;;
     --eval-num) need_value "$@"; eval_num="$2"; shift 2 ;;
+    --eval-batch) need_value "$@"; eval_batch="$2"; shift 2 ;;
     --bench|--dataset) need_value "$@"; dataset="$2"; shift 2 ;;
     --ckpt) need_value "$@"; ckpt="$2"; shift 2 ;;
     --env-cfg) need_value "$@"; env_cfg="$2"; shift 2 ;;
@@ -162,6 +165,12 @@ if [[ "${execution_mode}" != "eval" && "${execution_mode}" != "client" && "${exe
   echo "[bench batch] --mode must be eval, client, or server" >&2
   exit 2
 fi
+if [[ -n "${eval_batch}" ]]; then
+  if [[ "${execution_mode}" != client || ( "${eval_batch}" != true && "${eval_batch}" != false ) ]]; then
+    echo "[bench batch] --eval-batch requires client mode and true or false" >&2
+    exit 2
+  fi
+fi
 if [[ "${execution_mode}" == "server" && "${resume}" == "true" ]]; then
   echo "[bench batch] --resume applies to eval/client results, not persistent policy servers" >&2
   exit 2
@@ -191,10 +200,6 @@ elif [[ "${execution_mode}" == "client" ]]; then
     echo "[bench batch] client mode requires --policy-name or --policy-dir, plus --policy-host and --policy-port" >&2
     usage >&2
     exit 2
-  fi
-  if [[ ! -f "${ROOT_DIR}/XPolicyLab/policy/${policy_name}/deploy.py" ]]; then
-    echo "[bench batch] policy deploy adapter not found: ${ROOT_DIR}/XPolicyLab/policy/${policy_name}/deploy.py" >&2
-    exit 1
   fi
 else
   if [[ -z "${policy_dir}" || -z "${ckpt}" || -z "${policy_env}" || -z "${policy_port}" ]]; then
@@ -720,6 +725,9 @@ run_eval_for_task() {
     )
   fi
   eval_cmd+=(--eval-num "${eval_num}")
+  if [[ "${execution_mode}" == client && -n "${eval_batch}" ]]; then
+    eval_cmd+=(--eval-batch "${eval_batch}")
+  fi
   if [[ "${dry_run}" == "true" ]]; then
     eval_cmd+=(--dry-run)
   fi

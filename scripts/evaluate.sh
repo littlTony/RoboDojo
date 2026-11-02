@@ -6,11 +6,11 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 usage() {
   cat <<'EOF'
-Usage: bash scripts/evaluate.sh <command> [--bench MobileArena] [options]
-       bash scripts/evaluate.sh --bench MobileArena <command> [options]
+Usage: bash scripts/evaluate.sh <command> [--bench NAME] [options]
+       bash scripts/evaluate.sh --bench NAME <command> [options]
 
-Benchmark: MobileArena (default). --dataset is an alias for --bench.
-Default environment profile: mobile_arena.
+Benchmarks: MobileArena (default), SparkArena. --dataset is an alias for --bench.
+Default profiles: mobile_arena, tianji_marvin_wuji, respectively.
 The simulator Conda environment is RoboDojo.
 
 Commands:
@@ -122,7 +122,7 @@ Required:
   --policy-env ENV      Policy conda env, uv, or env path
 
 Common options:
-  --bench NAME          MobileArena (default); --dataset is an alias
+  --bench NAME          MobileArena (default) or SparkArena; --dataset is an alias
   --eval-num NUM|native  Override EVAL_NUM for this eval; use `native` for per-task counts from _task.yml
   --env-cfg NAME        env_cfg stem (default: mobile_arena)
   --expert-num NUM      Legacy policy argument (default: 100)
@@ -243,7 +243,7 @@ Required:
   --policy-env ENV      Policy conda env, uv, or env path
 
 Common options:
-  --bench NAME          MobileArena (default); --dataset is an alias
+  --bench NAME          MobileArena (default) or SparkArena; --dataset is an alias
   --task TASK           Task passed to the policy server (omit for batch mode)
   --policy-port PORT    TCP port (auto-selected in single-task mode; required in batch)
   --bind-host HOST      Bind address (default: 0.0.0.0 for remote clients; use localhost for local-only)
@@ -333,6 +333,7 @@ run_client() {
   local ckpt="external"
   local action_type="ee"
   local eval_num="${EVAL_NUM:-}"
+  local eval_batch=""
   local connect_timeout="5"
   local dry_run="false"
 
@@ -351,6 +352,7 @@ run_client() {
       --ckpt) need_value "$@"; ckpt="$2"; shift 2 ;;
       --action-type) need_value "$@"; action_type="$2"; shift 2 ;;
       --eval-num) need_value "$@"; eval_num="$2"; shift 2 ;;
+      --eval-batch) need_value "$@"; eval_batch="$2"; shift 2 ;;
       --connect-timeout) need_value "$@"; connect_timeout="$2"; shift 2 ;;
       --dry-run) dry_run="true"; shift ;;
       -h|--help)
@@ -369,16 +371,17 @@ Batch mode:
   `--policy-port` count must equal the group count and the host is reused.
 
 Required:
-  --policy-name NAME     XPolicyLab deploy module (XPolicyLab/policy/<NAME>/deploy.py)
+  --policy-name NAME     Policy name recorded in results; model code stays on the server
                          Omit when --policy-dir is set (name inferred from directory)
   --policy-dir PATH      Same as eval's --policy-dir; sets --policy-name from basename
   --policy-port PORT     Policy server TCP port
 
 Common options:
-  --bench NAME          MobileArena (default); --dataset is an alias
+  --bench NAME          MobileArena (default) or SparkArena; --dataset is an alias
   --task TASK           Selected benchmark task name (omit for batch mode)
   --policy-host HOST    Policy server host (default: 127.0.0.1)
   --eval-num NUM|native  Override EVAL_NUM for this run; `native` uses per-task counts
+  --eval-batch BOOL      External server accepts batches: true or false (default: local deploy.yml)
   --env-cfg NAME         env_cfg stem (default: mobile_arena)
   --seed NUM             Eval seed / layout seed (default: 0)
   --env-gpu ID           Isaac Sim GPU (default: 0)
@@ -413,11 +416,9 @@ EOF
     exit 2
   fi
 
-  local deploy_file="${ROOT_DIR}/XPolicyLab/policy/${policy_name}/deploy.py"
-  if [[ ! -f "${deploy_file}" ]]; then
-    echo "[bench client] policy deploy adapter not found: ${deploy_file}" >&2
-    echo "[bench client] --policy-name must match a directory under XPolicyLab/policy/" >&2
-    exit 1
+  if [[ -n "${eval_batch}" && "${eval_batch}" != true && "${eval_batch}" != false ]]; then
+    echo "[bench client] --eval-batch must be true or false" >&2
+    exit 2
   fi
 
   if [[ -z "${policy_host}" || -z "${policy_port}" ]]; then
@@ -457,6 +458,9 @@ EOF
     --additional_info "${additional_info}"
     --seed "${seed}"
   )
+  if [[ -n "${eval_batch}" ]]; then
+    client_args+=(--eval_batch "${eval_batch}")
+  fi
 
   echo "[bench client] task=${task} policy=${policy_name} server=${policy_host}:${policy_port} eval_num=${EVAL_NUM:-default}"
 

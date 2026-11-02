@@ -1,16 +1,21 @@
 # Benchmark scripts
 
-Run the MobileArena CLI from the repository root:
+Run the shared benchmark CLI from the repository root:
 
 ```bash
 bash scripts/evaluate.sh <command> [options]
 ```
 
-MobileArena is the only supported benchmark and the default. Explicit
-`--bench MobileArena` and its `--dataset` alias are accepted.
+MobileArena is the default. Select `--bench SparkArena` for the seven Tianji
+tabletop tasks; `--dataset` is an alias for `--bench`.
 `bash scripts/MobileArena/mobile_arena.sh <command>` is a thin entry point for
 the same CLI. See the [MobileArena guide](MobileArena/README.md) for tasks,
 policy contracts, assets, and scoring.
+
+See the [SparkArena guide](SparkArena/README.md) to import its assets and connect
+to an existing Spark_0 server. External clients can use `--policy-name Spark_0`
+without installing that model adapter locally, and `--eval-batch true` when the
+server supports batches. This option also applies to client batch sweeps.
 
 ## Public entry points
 
@@ -18,13 +23,14 @@ policy contracts, assets, and scoring.
 | --- | --- |
 | [evaluate.sh](evaluate.sh) | Shared CLI: `doctor`, `eval`, `server`, `client`, `smoke`, `benchmark`, `summarize`, `tasks` |
 | [install.sh](install.sh) | One-time environment setup (conda, Isaac Sim, submodules) |
-| [init_assets.sh](init_assets.sh) | Download MobileArena and shared assets (default: `MobileArena`) |
+| [init_assets.sh](init_assets.sh) | Download MobileArena assets, or import SparkArena with `--bench SparkArena --source /path/to/Assets` |
 | [MobileArena/download_data.sh](MobileArena/download_data.sh) | Download `ridiculouslzx/MobileArena` from ModelScope using a token, parallel files and large-file range threads; [usage](MobileArena/README.md#download-the-modelscope-dataset) |
 | [eval_policy.sh](eval_policy.sh) | Isaac Sim eval client (called by `evaluate.sh client` and XPolicyLab) |
 
 The default profile is `mobile_arena`, with `config_name: mobile_arena` for layouts
 and results. The simulator uses the `RoboDojo` Conda environment. An explicit
-`--env-cfg` must declare the MobileArena benchmark. The policy runs in its own
+`--env-cfg` must declare the selected benchmark. SparkArena defaults to
+`tianji_marvin_wuji`. The policy runs in its own
 environment: `--policy-env` does not install dependencies or activate the
 simulator for standalone `client` commands.
 

@@ -24,7 +24,7 @@ usage() {
 Usage: bash scripts/internal/verify_install.sh [options]
 
 Options:
-  --bench NAME          MobileArena (default; --dataset is an alias)
+  --bench NAME          MobileArena (default) or SparkArena; --dataset is an alias
   --policy-dir PATH     Optional XPolicyLab policy directory to validate
   --env-cfg NAME        env_cfg stem (default: mobile_arena)
   --task NAME           Task (default: place_bread_in_oven)

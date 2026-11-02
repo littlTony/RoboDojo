@@ -76,6 +76,9 @@ class AssetCheck:
             self.errors.append("Selected robot configuration contains no robots")
         for robot in robots:
             name = robot["robot_name"]
+            if name in ("tianji_marvin_wuji_left", "tianji_marvin_wuji_right"):
+                self.tianji_robot(robot)
+                continue
             base = self.assets / "Robots" / name
             if name not in ROBOT_USDS:
                 self.errors.append(f"Unsupported robot asset preflight: {name}")
@@ -96,6 +99,24 @@ class AssetCheck:
             else:
                 if not self.mapping(base / planner_path, expanded_paths=True):
                     self.errors.append(f"Missing or empty planner configuration: {base / planner_path}")
+
+    def tianji_robot(self, robot):
+        side = robot["robot_name"].rsplit("_", 1)[-1]
+        base = self.assets / "Robots/tianji_marvin_wuji"
+        self.file(base / f"tianji_marvin_wuji_{side}.usd")
+        description = self.mapping(base / f"{side}_robot_config.yml")
+        if not description:
+            self.errors.append(f"Missing or empty Tianji {side} robot description")
+            return
+        self.reference(base, description.get("urdf_path"), "urdf_path")
+        if not robot.get("need_planner", True):
+            return
+        config = self.mapping(base / f"curobo_{side}.yml", expanded_paths=True)
+        urdf = Path(config.get("robot_cfg", {}).get("kinematics", {}).get("urdf_path", ""))
+        expected = base / f"urdf/tianji_wujihand2_{side}.urdf"
+        if not urdf.is_absolute() or urdf.resolve() != expected.resolve():
+            self.errors.append(f"Stale Tianji {side} Curobo URDF path; run utils/update_embodiment_config_path.py")
+        self.file(urdf)
 
     def scene(self, config):
         room = config.get("Room")
@@ -140,8 +161,9 @@ class AssetCheck:
             for category, instances in layout.get(kind, {}).items():
                 for instance in instances:
                     found = True
-                    self.object(kind, category, int(instance["category_idx"]),
-                                cluttered=instance.get("type") == "cluttered")
+                    self.object(
+                        kind, category, int(instance["category_idx"]), cluttered=instance.get("type") == "cluttered"
+                    )
         return found
 
     def declared_objects(self, config):
@@ -152,8 +174,11 @@ class AssetCheck:
                     indices = category.get("index")
                     if indices is None:
                         directory = self.objects / kind / name
-                        indices = [int(path.name) for path in directory.iterdir()
-                                   if path.is_dir() and path.name.isdigit()] if directory.is_dir() else []
+                        indices = (
+                            [int(path.name) for path in directory.iterdir() if path.is_dir() and path.name.isdigit()]
+                            if directory.is_dir()
+                            else []
+                        )
                         if not indices:
                             self.errors.append(f"Missing object asset models: {directory}")
                     for index in indices:
@@ -177,8 +202,10 @@ def check_assets(root, bench, env_cfg, task, seed, eval_num):
     check.robots(robot)
     layouts = root / "Assets" / "Eval_Layout" / bench / profile.get("config_name", env_cfg) / str(seed)
     pattern = re.compile(rf"{re.escape(task)}_\d+\.json")
-    paths = sorted((path for path in layouts.glob("*.json") if pattern.fullmatch(path.name)),
-                   key=lambda path: int(path.stem.rsplit("_", 1)[-1]))
+    paths = sorted(
+        (path for path in layouts.glob("*.json") if pattern.fullmatch(path.name)),
+        key=lambda path: int(path.stem.rsplit("_", 1)[-1]),
+    )
     required = expected_episode_count(bench, task, eval_num)
     selected = [check.mapping(path, json_file=True) for path in paths[:required]]
     for layout in selected or [{}]:
@@ -188,8 +215,10 @@ def check_assets(root, bench, env_cfg, task, seed, eval_num):
             check.declared_objects(task_cfg)
     if check.errors:
         raise ValueError("\n".join(dict.fromkeys(check.errors)))
-    return (f"{bench}/{task}: {len(check.checked)} asset/config files checked "
-            f"(robot={refs['robot']}, scene={refs['scene']})")
+    return (
+        f"{bench}/{task}: {len(check.checked)} asset/config files checked "
+        f"(robot={refs['robot']}, scene={refs['scene']})"
+    )
 
 
 def main():

@@ -1,0 +1,18 @@
+common:
+  device: "cpu"
+  overwrite_gpu_setting: 1
+  data_source: "teleop"
+  scene_config: "tianji_tabletop"
+  robot_config: "tianji_marvin_wuji"
+  camera_config: "tianji_camera"
+  render_interval: 5
+  robot_self_collision: true
+  eval_nums: 50
+
+tasks:
+  click_mouse:
+    device: "cpu"
+    overwrite_gpu_setting: 0
+  put_food_in_microwave:
+    device: "cpu"
+    overwrite_gpu_setting: 0

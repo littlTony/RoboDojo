@@ -2,15 +2,16 @@
 
 ## Project Overview
 
-This checkout evaluates MobileArena on the shared Isaac Sim / IsaacLab stack.
-Policy evaluation runs via XPolicyLab. MobileArena is the only supported
-benchmark; use `scripts/evaluate.sh` for inventory, validation, launches, and
+This checkout evaluates MobileArena and SparkArena on the shared Isaac Sim / IsaacLab stack.
+MobileArena remains the default. Use `scripts/evaluate.sh` for inventory, validation, launches, and
 batch evaluation. The repository name and `RoboDojo` simulator Conda environment
 remain unchanged. Local assets and old evaluation results are retained.
 
 Contributors maintain **Tasks** (scene + reward logic), shared **env** / **env_cfg** configs, and eval infrastructure under **scripts/** and **src/eval_client/**.
 
-Human-facing docs: [MobileArena](scripts/MobileArena/README.md).
+Human-facing docs: [MobileArena](scripts/MobileArena/README.md), [SparkArena](scripts/SparkArena/README.md).
+SparkArena uses an existing external policy server; retain the current submodule
+pins and keep policy model code and weights on that server.
 
 ## Repository Layout
 
