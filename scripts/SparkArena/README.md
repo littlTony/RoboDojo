@@ -62,15 +62,16 @@ Run inside the activated simulator environment:
 EVAL_NUM_ENVS=5 bash scripts/evaluate.sh client --bench SparkArena \
   --task click_mouse --policy-name Spark_0 \
   --policy-host SERVER_HOST --policy-port 6001 \
-  --eval-batch true --eval-num native --seed 0 --env-gpu 0 \
+  --eval-num native --seed 0 --env-gpu 0 \
   --ckpt steps40000 --action-type ee
 ```
 
-`--policy-name` labels the remote policy and result directory. It does not load
-model code locally. `--eval-batch true` explicitly declares that this server
-accepts batches; use `false` for a server that accepts one environment. If
-omitted, the client retains the existing local `deploy.yml` batch setting,
-falling back to a single environment when no local adapter is installed.
+`--policy-name` selects the policy's local `deploy.py` rollout functions and labels
+the remote policy and result directory. Model inference and weights stay on the
+server. RoboDojo controls parallel simulation with `EVAL_NUM_ENVS` and does not
+read or override XPolicyLab's `eval_batch` setting. With multiple environments,
+the adapter and server must support the multi-environment interface and retain
+state by environment index. XPolicyLab handles model inference batching.
 `--ckpt` is the result label in client mode; it does not change the server's
 loaded checkpoint. `EVAL_NUM_ENVS=5` sets the parallel environment count for this
 run, while `--eval-num native` requests 50 valid episodes per task.
@@ -80,7 +81,7 @@ Omit `--task` to run all seven tasks sequentially against the same server:
 ```bash
 EVAL_NUM_ENVS=5 bash scripts/evaluate.sh client --bench SparkArena \
   --policy-name Spark_0 --policy-host SERVER_HOST --policy-port 6001 \
-  --eval-batch true --eval-num native --seed 0 --env-gpu 0 \
+  --eval-num native --seed 0 --env-gpu 0 \
   --ckpt steps40000 --action-type ee
 ```
 

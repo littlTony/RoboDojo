@@ -20,7 +20,6 @@ env_gpu_ids=""
 policy_env=""
 eval_env="RoboDojo"
 eval_num="${EVAL_NUM:-1}"
-eval_batch=""
 policy_name=""
 policy_host=""
 policy_port=""
@@ -62,7 +61,6 @@ Options:
   --markdown PATH     Markdown summary (same default directory as --summary)
   --run-id ID         Stable run id used in result paths and summaries.
   --eval-num NUM      Episode count for each task (default: 1). Use `native` to use per-task counts from _task.yml.
-  --eval-batch BOOL   External server batch capability in client mode: true or false.
   --bench NAME        Benchmark: MobileArena (default) or SparkArena; --dataset is an alias.
   --ckpt NAME         Policy checkpoint name (required)
   --env-cfg NAME      Profile stem (default: mobile_arena)
@@ -118,7 +116,6 @@ while [[ $# -gt 0 ]]; do
     --markdown) need_value "$@"; markdown_path="$2"; shift 2 ;;
     --run-id) need_value "$@"; run_id="$2"; run_id_explicit="true"; shift 2 ;;
     --eval-num) need_value "$@"; eval_num="$2"; shift 2 ;;
-    --eval-batch) need_value "$@"; eval_batch="$2"; shift 2 ;;
     --bench|--dataset) need_value "$@"; dataset="$2"; shift 2 ;;
     --ckpt) need_value "$@"; ckpt="$2"; shift 2 ;;
     --env-cfg) need_value "$@"; env_cfg="$2"; shift 2 ;;
@@ -164,12 +161,6 @@ fi
 if [[ "${execution_mode}" != "eval" && "${execution_mode}" != "client" && "${execution_mode}" != "server" ]]; then
   echo "[bench batch] --mode must be eval, client, or server" >&2
   exit 2
-fi
-if [[ -n "${eval_batch}" ]]; then
-  if [[ "${execution_mode}" != client || ( "${eval_batch}" != true && "${eval_batch}" != false ) ]]; then
-    echo "[bench batch] --eval-batch requires client mode and true or false" >&2
-    exit 2
-  fi
 fi
 if [[ "${execution_mode}" == "server" && "${resume}" == "true" ]]; then
   echo "[bench batch] --resume applies to eval/client results, not persistent policy servers" >&2
@@ -725,9 +716,6 @@ run_eval_for_task() {
     )
   fi
   eval_cmd+=(--eval-num "${eval_num}")
-  if [[ "${execution_mode}" == client && -n "${eval_batch}" ]]; then
-    eval_cmd+=(--eval-batch "${eval_batch}")
-  fi
   if [[ "${dry_run}" == "true" ]]; then
     eval_cmd+=(--dry-run)
   fi

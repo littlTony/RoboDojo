@@ -20,7 +20,6 @@ bench_name=""
 device_id=""
 policy_name=""
 port=""
-eval_batch=""
 additional_info=""
 seed=""
 host="localhost"
@@ -44,7 +43,7 @@ while [[ $# -gt 0 ]]; do
         --device_id)   device_id="$2" ;;
         --policy_name) policy_name="$2" ;;
         --port)        port="$2" ;;
-        --eval_batch)  eval_batch="$2" ;;
+        --eval_batch)  : ;; # Legacy XPolicyLab argument; environment count is independent.
         --additional_info)  additional_info="$2" ;;
         --seed)  seed="$2" ;;
         --host) host="$2" ;;
@@ -124,11 +123,6 @@ fi
 if [[ -n "${device_id}" ]]; then
   export CUDA_VISIBLE_DEVICES="${device_id}"
   echo "[INFO] device_id = ${device_id} → CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES}"
-fi
-
-if [[ -n "${eval_batch}" ]]; then
-  echo "[INFO] eval_batch     = ${eval_batch}"
-  extra_args+=(--eval_batch "${eval_batch}")
 fi
 
 # Read render_interval / env.num_envs from yaml (fallback if missing)

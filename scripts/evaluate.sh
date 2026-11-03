@@ -333,7 +333,6 @@ run_client() {
   local ckpt="external"
   local action_type="ee"
   local eval_num="${EVAL_NUM:-}"
-  local eval_batch=""
   local connect_timeout="5"
   local dry_run="false"
 
@@ -352,7 +351,6 @@ run_client() {
       --ckpt) need_value "$@"; ckpt="$2"; shift 2 ;;
       --action-type) need_value "$@"; action_type="$2"; shift 2 ;;
       --eval-num) need_value "$@"; eval_num="$2"; shift 2 ;;
-      --eval-batch) need_value "$@"; eval_batch="$2"; shift 2 ;;
       --connect-timeout) need_value "$@"; connect_timeout="$2"; shift 2 ;;
       --dry-run) dry_run="true"; shift ;;
       -h|--help)
@@ -381,7 +379,6 @@ Common options:
   --task TASK           Selected benchmark task name (omit for batch mode)
   --policy-host HOST    Policy server host (default: 127.0.0.1)
   --eval-num NUM|native  Override EVAL_NUM for this run; `native` uses per-task counts
-  --eval-batch BOOL      External server accepts batches: true or false (default: local deploy.yml)
   --env-cfg NAME         env_cfg stem (default: mobile_arena)
   --seed NUM             Eval seed / layout seed (default: 0)
   --env-gpu ID           Isaac Sim GPU (default: 0)
@@ -413,11 +410,6 @@ EOF
 
   if [[ -z "${policy_name}" ]]; then
     echo "[bench client] --policy-name or --policy-dir is required" >&2
-    exit 2
-  fi
-
-  if [[ -n "${eval_batch}" && "${eval_batch}" != true && "${eval_batch}" != false ]]; then
-    echo "[bench client] --eval-batch must be true or false" >&2
     exit 2
   fi
 
@@ -458,9 +450,6 @@ EOF
     --additional_info "${additional_info}"
     --seed "${seed}"
   )
-  if [[ -n "${eval_batch}" ]]; then
-    client_args+=(--eval_batch "${eval_batch}")
-  fi
 
   echo "[bench client] task=${task} policy=${policy_name} server=${policy_host}:${policy_port} eval_num=${EVAL_NUM:-default}"
 

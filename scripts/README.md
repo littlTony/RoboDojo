@@ -13,9 +13,9 @@ the same CLI. See the [MobileArena guide](MobileArena/README.md) for tasks,
 policy contracts, assets, and scoring.
 
 See the [SparkArena guide](SparkArena/README.md) to import its assets and connect
-to an existing Spark_0 server. External clients can use `--policy-name Spark_0`
-without installing that model adapter locally, and `--eval-batch true` when the
-server supports batches. This option also applies to client batch sweeps.
+to an existing Spark_0 server. External clients select it with
+`--policy-name Spark_0`; model inference and weights stay on the server.
+Set `EVAL_NUM_ENVS` to control parallel simulation for single tasks or sweeps.
 
 ## Public entry points
 
@@ -195,11 +195,13 @@ EVAL_NUM_ENVS=2 bash scripts/evaluate.sh eval --bench MobileArena \
   --action-type joint --eval-num 2
 ```
 
-MobileArena defaults to one environment. Parallel environments require an adapter
-with `eval_batch: true` and sufficient runtime resources. `demo_policy` declares
-`eval_batch: false`, so the client forces one environment even when overridden.
-The six learned adapters currently declare `eval_batch: true`; this is interface
-support, not a guarantee that a given GPU/checkpoint can run every batch size.
+MobileArena defaults to one environment. RoboDojo uses `num_envs` to select the
+single- or multi-environment rollout and does not read or override XPolicyLab's
+`eval_batch` setting. XPolicyLab owns model inference batching. Multi-environment
+rollouts require the adapter's `eval_one_episode_batch` entry point and model
+methods that retain observation/action state by environment index; those methods
+can evaluate observations together or one at a time. Choose an environment count
+that fits the simulator and model resources.
 
 ### Logs and resume
 

@@ -297,9 +297,10 @@ class ArticulationObject(SingleArticulation):
     def apply_saved_pose(self):
         if self.physics_cfg.get("reset_drive", False):
             self.set_joint_velocities(torch.zeros_like(self.get_joint_velocities()))
-        self.set_current_joint_positions(self.initial_joint_positions)
-        if self.physics_cfg.get("reset_drive", False):
+            self.set_current_joint_positions(self.initial_joint_positions)
             self.reset_drive_targets()
+        else:
+            self.set_current_joint_positions(self.initial_joint_positions)
         pos = self.default_pos
         ori = self.default_ori
         scale = self.init_scale

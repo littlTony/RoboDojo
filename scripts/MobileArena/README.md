@@ -296,10 +296,11 @@ robin by task count. This does not guarantee equal runtimes across workers.
 GPU grouping assigns different tasks to separate simulator processes. To change
 the number of simultaneous environments within each process, set
 `EVAL_NUM_ENVS=2` (or another supported count) before the command. MobileArena's
-profile defaults to one environment. The six learned adapters declare
-`eval_batch: true`; actual batch size still depends on available memory and
-runtime validation. `demo_policy` declares `eval_batch: false`, so the client
-forces one environment regardless of `EVAL_NUM_ENVS`.
+profile defaults to one environment. RoboDojo selects the rollout from this
+environment count independently of XPolicyLab's `eval_batch` setting. The policy
+adapter must support the multi-environment interface and keep each environment's
+state separate; model inference batching is handled within XPolicyLab. The
+usable environment count still depends on available memory and runtime validation.
 
 In batch `eval` mode, each task starts a fresh policy server. Batch `client`
 mode connects to external servers via `--policy-host` / `--policy-port`.

@@ -63,7 +63,6 @@ def build_eval_env_class(task_class):
             self.benchmark_paths = BenchmarkPaths.from_config(self.eval_cfg)
             self.config_name = self.eval_cfg.get("config_name", None)
             self.task_name = self.eval_cfg.get("task_name", None)
-            self.eval_batch = self.eval_cfg.get("eval_batch", False)
             self.eval_num = int(self.eval_cfg.get("eval_num", 50))
             self.policy_name = self.eval_cfg.get("policy_name", None)
             self.additional_info = self.eval_cfg.get("additional_info", "")
@@ -622,7 +621,7 @@ def build_eval_env_class(task_class):
                     continue
                 value = action_dict[key]
 
-                if not isinstance(value, (np.ndarray, list, tuple)):
+                if not isinstance(value, np.ndarray | list | tuple):
                     raise TypeError(f"action_dict['{key}'] must be array-like, got {type(value)}")
 
                 arr = np.asarray(value)
@@ -769,7 +768,8 @@ def build_eval_env_class(task_class):
                 if hasattr(self, "query_support_arm_traj"):
                     for env_idx in exist_envs:
                         self.query_support_arm_traj(env_idx=env_idx)
-            if self.eval_batch:
+            # Environment parallelism is independent of model-side inference batching.
+            if self.num_envs > 1:
                 self.eval_one_episode_batch()
             else:
                 self.eval_one_episode()

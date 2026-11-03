@@ -32,11 +32,6 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--task_name", type=str)
 parser.add_argument("--num_envs", type=int, default=1, help="Number of environments to spawn.")
 parser.add_argument(
-    "--eval_batch",
-    choices=("true", "false"),
-    help="Override the external server's batch capability; otherwise use the local deploy.yml.",
-)
-parser.add_argument(
     "--env_cfg_type",
     type=str,
     required=True,
@@ -90,13 +85,13 @@ args_cli = parser.parse_args()
 # Resolve the profile before choosing the task config used by the monitor.
 # These helpers do not import any app-dependent simulation modules.
 from env.benchmark import BenchmarkPaths
-from env.global_configs import ENV_CONFIG_PATH, ROOT_DIR
+from env.global_configs import ENV_CONFIG_PATH
 from task import task_registry
 from utils.load_file import load_yaml
 
 eval_profile = load_yaml(os.path.join(ENV_CONFIG_PATH, args_cli.env_cfg_type + ".yml"))
 benchmark_paths = BenchmarkPaths.from_config(eval_profile)
-if args_cli.headless and benchmark_paths.name == "SparkArena":
+if args_cli.headless:
     args_cli.video = True
 
 
@@ -165,14 +160,6 @@ from env.global_configs import *
 from src.eval_client.nav_eval_env import create_nav_eval_env
 from utils.cluttered_generator import UnStableError
 from utils.pipeline_utils import *
-
-
-def _eval_batch_from_deploy(policy_name):
-    if args_cli.eval_batch is not None:
-        return args_cli.eval_batch == "true"
-    deploy_yml_path = os.path.join(ROOT_DIR, "XPolicyLab", "policy", policy_name, "deploy.yml")
-    deploy_yml = load_yaml(deploy_yml_path) if os.path.isfile(deploy_yml_path) else {}
-    return bool(deploy_yml.get("eval_batch", False))
 
 
 def _resume_manifest_path(eval_cfg, run_id):
@@ -279,8 +266,6 @@ def main():
     eval_cfg["task_name"] = task_name
     eval_cfg["num_envs"] = num_envs
     eval_cfg["device_id"] = args_cli.device_id
-    eval_batch = _eval_batch_from_deploy(args_cli.policy_name)
-    eval_cfg["eval_batch"] = eval_batch
     eval_cfg["policy_name"] = args_cli.policy_name
     eval_cfg["additional_info"] = args_cli.additional_info
     eval_cfg["seed"] = args_cli.seed
@@ -325,12 +310,6 @@ def main():
             "deploy_cfg": deploy_cfg,
         }
     )
-    if not eval_batch and num_envs != 1:
-        print(
-            f"[main] eval_batch=false in XPolicyLab/policy/{args_cli.policy_name}/deploy.yml; "
-            f"forcing num_envs {num_envs} -> 1"
-        )
-        num_envs = 1
     eval_cfg["num_envs"] = num_envs
     OmegaConf.update(env_cfg, "sim.scene.num_envs", num_envs, force_add=True)
     OmegaConf.update(env_cfg, "eval_cfg.num_envs", num_envs, force_add=True)
